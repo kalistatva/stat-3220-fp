@@ -1,4 +1,4 @@
-ID,university,avg_win_pct,conference,total_expenses,total_revenues,total_fb_coaching_salaries,nil_collectives,scoring_offense,scoring_defense,campus_setting
+ID,university,avg_win_pct,conference,total_expenses,total_revenues,total_fb_coaching,nil_collectives,scoring_offense,scoring_defense,campus_setting
 1,Alabama,0.8,Southeastern Conference,223567190,216368250.7,31541438.33,2,37.55,18.2,Suburban
 2,Arizona,0.51,Pacific-12 Conference,140902112.7,133971186.7,9028249,3,32.7,29.8,Urban
 3,Arizona State,0.43,Pacific-12 Conference,136607612,126561478.3,10031258,1,21.95,28.6,Urban
