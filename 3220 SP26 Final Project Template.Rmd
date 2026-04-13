@@ -1,0 +1,209 @@
+---
+title: "STAT 3220 Final Project"
+author: "Table 1"
+fontsize: 12pt
+geometry: margin=1in
+urlcolor: black
+output: pdf_document
+header-includes:
+- \usepackage{setspace}
+- \onehalfspacing
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, highlight=FALSE, comment=NA, warnings=FALSE,message=FALSE)
+```
+
+```{r, echo=FALSE, warning=FALSE,results=FALSE}
+## Use this chunk for reading in packages.
+library(tidyverse)
+library(ggplot2)
+library(cowplot) # using to generate grid plots in ggplot2
+## Use this chunk for reading in the data, combining the data, and any other major data cleaning that is not relevant to show.
+fbdata_original <- read_csv("https://raw.githubusercontent.com/kalistatva/stat-3220-fp/refs/heads/main/stat3220cfbdata1.csv", name_repair = "universal")
+fbdata <- read_csv("https://raw.githubusercontent.com/kalistatva/stat-3220-fp/refs/heads/main/stat3220cfbdata1.csv", name_repair = "universal")
+
+# abbreviating conference names
+fbdata$conference[fbdata$conference == "Southeastern Conference"] <- "SEC"
+fbdata$conference[fbdata$conference == "Atlantic Coast Conference"] <- "ACC"
+fbdata$conference[fbdata$conference == "Big 12 Conference"] <- "Big12"
+fbdata$conference[fbdata$conference == "Big Ten Conference"] <- "BigTen"
+fbdata$conference[fbdata$conference == "Pacific-12 Conference"] <- "Pac12"
+
+fbdata$avg_win_pct <- 100 * fbdata$avg_win_pct
+
+# setting NIL collectives as character/categorical
+fbdata$nil_collectives <- as.character(fbdata$nil_collectives)
+fbdata$nil_collectives[fbdata$nil_collectives %in% c("3", "4")] <- "3+"
+fbdata[5:7] <- fbdata[5:7] / 1000000
+
+## Remove the ## before all code.
+```
+
+\newpage
+
+## Introduction
+
+1)  Does an increase in athletic department/football coaching spending result in an increase in the win percentage of Power Five college football teams?
+
+2)  Do more NIL collectives result in an increase in the win percentage of Power Five college football teams?
+
+3)  Does an increase in scoring offense result in an increase in the win percentage of Power Five college football teams? What about scoring defense?
+
+## Data Summary
+
+### Metadata Description
+
+### EDA Summary
+
+```{r, echo=FALSE, warning=FALSE,results=TRUE}
+## Use this code chunk can be used to execute any functions or summaries 
+## that will not be included in your output such as correlations or 5 number summaries
+
+print(tapply(fbdata$avg_win_pct, fbdata$conference, summary))
+print(tapply(fbdata$avg_win_pct, fbdata$nil_collectives, summary))
+print(tapply(fbdata$avg_win_pct, fbdata$campus_setting, summary))
+print(round(cor(fbdata[!is.na(fbdata$total_expenses),c(5,6,7,9,10)], fbdata[!is.na(fbdata$total_expenses),3]),3)) # taking into account that Pitt is missing Knight-Newhouse data, likely because it's technically not a public university but rather "state-related"
+```
+
+All levels for each qualitative variable show some overlap in the box plots (as shown in Appendix C), with fairly comparable mean average win percentages. However, SEC schools, schools with 3/4 NIL collectives, and rural schools are the only groups with mean (yearly average) win percentages above 60%, indicating that there may be a relationship between any given categorical variable and the average win percentage of Power Five FBS schools (from 2022-2024).
+
+As for quantitative variables, there is a positive relationship between every single variable and average win percentage except for scoring defense (which is expected, as scoring defense is points conceded by the team defense per game). The strongest correlations are apparent between scoring offense/scoring defense and average win percentage, with correlations at roughly $\pm0.75$. All the variables have apparent linear relationships, with few immediately apparent outliers and influential points (with the possible exception of Alabama, the only school with a football coaching spending greater than \$30 million per year).
+
+Looking at the grouped scatter plots in Appendix C, there isn't strong evidence of an interaction between conference and total football coaching spending/scoring offense (with the possible exception of the Big 12). There also doesn't appear to be a major interaction between conference and campus setting with the exception of the SEC, the only conference where suburban schools appear to perform better than urban ones.
+
+## Analysis and Results
+
+```{r, echo=FALSE, warning=FALSE,results=FALSE}
+## This code chunk can be used to execute any functions or summaries that will not be included in your output
+
+```
+
+## Conclusions
+
+\newpage
+
+## Appendix A: Data Dictionary
+
+| Variable Name | Abbreviated Name | Description |
+|:----------------------:|:----------------------:|:----------------------:|
+| Team | university | University football team (observations) |
+| Average Win % | avg_win_pct | Average win % across 2022-2024 (response) |
+| Conference | conference | Team conference (SEC, ACC, Big Ten, Big 12, Pac-12) |
+| Total Expenses | total_expenses | Total expenses of the university's athletic department in millions USD |
+| Total Revenues | total_revenues | Total revenue of the university's athletic department in millions USD |
+| Total Football Coaching Spending | total_fb_coaching | Total spending on football coaching in millions USD |
+| NIL Collective | nil_collectives | Number of NIL collectives for a university's athletic department |
+| Scoring Offense | scoring_offense | Average points scored per game by team offense across 2022-2024 |
+| Scoring Defense | scoring_defense | Average points given per game by team defense across 2022-2024 |
+| Campus Setting | campus_setting | Whether the main campus is urban, suburban, or rural |
+
+\newpage
+
+## Appendix B: Data Rows
+
+```{r, echo=FALSE}
+# Use head() function to output first several rows
+head(fbdata)
+```
+
+\newpage
+
+### Appendix C: Exploratory Data Analysis
+
+```{r, echo=TRUE}
+## Use this codeto include the relevant plots from EDA
+## This should NOT be a dump of all of your plots and outputs.
+## Refer to the Rmarkdown guide for sizing information on your plots
+
+# This partition is optional, but can be useful for a simple way to resize your plots
+# ~~par(mfrow=c(2,3),pin=c(1,1),mar=c(7.1,4.1,3,1))~~ (not using, using cowplot function plot_grid() instead)
+
+
+ggplot(data = fbdata) +
+  geom_histogram(mapping = aes(x = avg_win_pct), color = "black", fill = "#cc338b", bins = 10) +
+  labs(x = "Average Win Percentage", y = "Number of Universities", title = "Average Win Percentages of Power Five NCAA Teams from 2022-2024")
+
+confplot <- ggplot(data = fbdata, mapping = aes(x =  conference, y = avg_win_pct)) +
+  geom_boxplot(color = "black", fill = "#cc338b", staplewidth = 0.1) +
+  labs(x = "Power Five Conference", y = "Average Win Percentage")
+
+nilplot <- ggplot(data = fbdata, mapping = aes(x =  nil_collectives, y = avg_win_pct)) +
+  geom_boxplot(color = "black", fill = "#cc338b", staplewidth = 0.1) +
+  labs(x = "Number of NIL Collectives", y = "Average Win Percentage")
+
+settingplot <- ggplot(data = fbdata, mapping = aes(x =  campus_setting, y = avg_win_pct)) +
+  geom_boxplot(color = "black", fill = "#cc338b", staplewidth = 0.1) +
+  labs(x = "Campus Setting", y = "Average Win Percentage")
+
+plot_grid(confplot, nilplot, settingplot) # boxplots for categorical variables
+
+qual1 <- ggplot(data = fbdata, mapping = aes(x = total_expenses, y = avg_win_pct)) +
+  geom_point(color = "darkblue", size = 0.1) +
+  labs(x = "Athletic Department Expenses (millions)", y = "Average Win %")
+
+qual2 <- ggplot(data = fbdata, mapping = aes(x = total_revenues, y = avg_win_pct)) +
+  geom_point(color = "darkblue", size = 0.1) +
+  labs(x = "Athletic Department Revenues (millions)", y = "Average Win %")
+
+qual3 <- ggplot(data = fbdata, mapping = aes(x = total_fb_coaching, y = avg_win_pct)) +
+  geom_point(color = "darkblue", size = 0.1) +
+  labs(x = "Football Coaching Spending (millions)", y = "Average Win %")
+
+qual4 <- ggplot(data = fbdata, mapping = aes(x = scoring_offense, y = avg_win_pct)) +
+  geom_point(color = "darkblue", size = 0.1) +
+  labs(x = "Scoring Offense", y = "Average Win %")
+
+qual5 <- ggplot(data = fbdata, mapping = aes(x = scoring_defense, y = avg_win_pct)) +
+  geom_point(color = "darkblue", size = 0.1) +
+  labs(x = "Scoring Defense", y = "Average Win %")
+
+plot_grid(qual1, qual2, qual3, qual4, qual5, nrow = 3) # scatterplots for categorical variables
+
+# interaction plots below
+
+ggplot(data = fbdata, mapping = aes(x = total_fb_coaching, y = avg_win_pct, color = conference)) +
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE) +
+  labs(x = "Football Coaching Spending (millions)", y = "Average Win %", color = "Conference", title = "Interaction of Football Coaching Spending and Conference")
+
+ggplot(data = fbdata, mapping = aes(x = scoring_offense, y = avg_win_pct, color = conference)) +
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE) +
+  labs(x = "Scoring Offense", y = "Average Win %", color = "Conference", title = "Interaction Scoring Offense and Conference")
+
+interaction.plot(fbdata$conference, fbdata$campus_setting, fbdata$avg_win_pct, fun = mean, trace.label = "Campus Setting", xlab = "Conference", ylab = "Average Win Percentage") # Might make a prettier version with ggplot2 later! Still a beginner to ggplot2 though
+```
+
+\newpage
+
+## Appendix D: Final Model Output and Plots
+
+```{r, echo=FALSE, warning=FALSE,results=FALSE}
+## This code chunk can be used to execute any functions or summaries that will not be included in your output
+```
+
+```{r, echo=FALSE}
+## Use this section to output the summary of your final model
+## Include the relevant plots from assumptions and your additional techniques
+## This should NOT be a dump of all of your plots and outputs.
+## Refer to the Rmarkdown guide for sizing information on your plots
+```
+
+\newpage
+
+## Appendix E: References
+
+### Background
+
+### Data Sources
+
+CollegeBoard. (2026). *College List.* BigFuture. [https://bigfuture.collegeboard.org/college-search/college-list](https://bigfuture.collegeboard.org/college-search/college-list?viewmode=card){.uri}
+
+Knight Foundation. (2026). *Custom Reporting Results.* Knight-Newhouse College Athletics Database. <https://knightnewhousedata.org/reports/c31f18f0>
+
+National College Athletics Association. (2026). *NCAA College Football FBS Stats.* <https://www.ncaa.com/stats/football/Fbs>
+
+Patrick O'Rourke. (2026). *NCAA Revenue Sharing & NIL Estimates 2025*. NIL-NCAA. <https://nil-ncaa.com/>
+
+### Additional Help
