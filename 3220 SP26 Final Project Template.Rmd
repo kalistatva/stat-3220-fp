@@ -95,9 +95,9 @@ Looking at the grouped scatter plots in Appendix C, there isn't strong evidence 
 # Nish's code
 
 # plot with correlations to identify multicollinearity
-corr_matrix <- round(cor(fbdata[ , c(5,6,7,9,10)]), 4)
-corr_matrix
-corrplot(corr_matrix)
+# corr_matrix <- round(cor(fbdata[ , c(5,6,7,9,10)]), 4)
+# corr_matrix
+# corrplot(corr_matrix)
 
 # all quantitative variables, single-order terms only!
 m_allquant <- lm(avg_win_pct ~ total_expenses + total_revenues + total_fb_coaching + scoring_offense + scoring_defense, data = fbdata)
@@ -155,6 +155,11 @@ anova(m_scoringred4, m_qualsingle)
 anova(m_scoringred5, m_qualsingle)
 anova(m_scoringred6, m_qualsingle)
 
+# okay so residual plots did show a bit of lack of fit, adding quadratic terms
+
+m_scoringquadratic <- lm(avg_win_pct ~ scoring_offense + I(scoring_offense^2) + scoring_defense + I(scoring_defense^2), data = fbdata)
+summary(m_scoringquadratic)
+
 # Aiden's code
 
 model_reduced <- lm(avg_win_pct ~ scoring_offense + scoring_defense, 
@@ -195,11 +200,19 @@ While there did not seem to be any major relationship between our categorical va
 
 Performing nested F-tests, we found that all three interactions (conference vs NIL collectives, conference vs campus setting, and NIL collectives vs campus setting) were not significant in predicting average win percentage. As a result, all interaction terms were dropped, and each single-order term was further tested. After performing nested F-tests on the dummy variables for conference, number of NIL collectives, and campus setting, we found that none of those variables were significant in predicting average win percentage. **As a result, we still retained the model with just scoring offense and scoring defense.**
 
-We did not see evidence for a significant interaction between scoring offense/defense and our qualitative variables in scatterplots (see scoring offense vs conference in appendix C), so they were not added to our model. As a result, our final model was:
+We did not see evidence for a significant interaction between scoring offense/defense and our qualitative variables in scatterplots (see scoring offense vs conference in appendix C), so they were not added to our model. As a result, our final model (testing for single-order terms/interactions) was:
 
 $Average Win \% = \beta_{0} + \beta_{1}ScoringOffense + \beta_{2}ScoringDefense$, with predicted values
 
 $\widehat{Average Win \%} = 64.3942 + 1.3098ScoringOffense - 1.8747ScoringDefense$.
+
+We then tested this model to see if it met the assumptions for multiple linear regression. However, it seemed to violate the assumption for lack of fit, with a quadratic pattern visible in the residual plots (see appendix D), leading us to add a quadratic term to our model:
+
+$Average Win \% = \beta_{0} + \beta_{1}ScoringOffense + \beta_{2}ScoringDefense + \beta_{3}ScoringOffense^2 + \beta_{4}ScoringDefense^2$ with predicted values
+
+$\widehat{Average Win \%} = 106.780 + 0.004ScoringOffense - 4.036ScoringDefense + 0.002ScoringOffense^2 + 0.047ScoringDefense^2$. This model had both a higher multiple and adjusted r-squared and, as shown in appendix D, satisfies the the assumptions of multiple linear regression, with no obvious lack of fit in the residual plots and constant variance in the residual plots. In addition, the residuals were fairly normally distributed and lined up with the Q-Q plots, indicating that the model meets the assumptions for multiple linear regression.
+
+On a surface level, this model does seem to be accurate at predicting average win percentage, with a multiple R-squared value of 0.8657 and adjusted R-squared of 0.8543 (a difference of 0.0114, indicating that the model is not overfitted either). Through a global F-test, we can determine that this model is additionally adequate in predicting average win percentage ($F = 75.73, df = 4, 47, p < 2.2 \times 10^{-16}$). However, the MSE is 5.581%, which is a fairly high mean standard error for our data (as win percentages generally fall between 40-60%).
 
 ## Conclusions
 
@@ -312,6 +325,14 @@ interaction.plot(fbdata$conference, fbdata$nil_collectives_2, fbdata$avg_win_pct
 ## Include the relevant plots from assumptions and your additional techniques
 ## This should NOT be a dump of all of your plots and outputs.
 ## Refer to the Rmarkdown guide for sizing information on your plots
+
+summary(m_scoringquadratic)
+
+residualPlots(m_scoring, tests = F)
+
+residualPlots(m_scoringquadratic, tests = F)
+plot(m_scoringquadratic, which=c(1,2))
+hist(residuals(m_scoringquadratic))
 ```
 
 \newpage
