@@ -19,6 +19,9 @@ knitr::opts_chunk$set(echo = TRUE, highlight=FALSE, comment=NA, warnings=FALSE,m
 library(tidyverse)
 library(ggplot2)
 library(cowplot) # using to generate grid plots in ggplot2
+library(car)
+library(corrplot)
+library(olsrr)
 ## Use this chunk for reading in the data, combining the data, and any other major data cleaning that is not relevant to show.
 fbdata_original <- read_csv("https://raw.githubusercontent.com/kalistatva/stat-3220-fp/refs/heads/main/stat3220cfbdata1.csv", name_repair = "universal")
 fbdata <- read_csv("https://raw.githubusercontent.com/kalistatva/stat-3220-fp/refs/heads/main/stat3220cfbdata1.csv", name_repair = "universal")
@@ -56,14 +59,14 @@ fbdata[5:7] <- fbdata[5:7] / 1000000
 
 ### EDA Summary
 
-```{r, echo=FALSE, warning=FALSE,results=TRUE}
+```{r, echo=FALSE, warning=FALSE,results=FALSE}
 ## Use this code chunk can be used to execute any functions or summaries 
 ## that will not be included in your output such as correlations or 5 number summaries
 
-print(tapply(fbdata$avg_win_pct, fbdata$conference, summary))
-print(tapply(fbdata$avg_win_pct, fbdata$nil_collectives, summary))
-print(tapply(fbdata$avg_win_pct, fbdata$campus_setting, summary))
-print(round(cor(fbdata[!is.na(fbdata$total_expenses),c(5,6,7,9,10)], fbdata[!is.na(fbdata$total_expenses),3]),3)) # taking into account that Pitt is missing Knight-Newhouse data, likely because it's technically not a public university but rather "state-related"
+tapply(fbdata$avg_win_pct, fbdata$conference, summary)
+tapply(fbdata$avg_win_pct, fbdata$nil_collectives, summary)
+tapply(fbdata$avg_win_pct, fbdata$campus_setting, summary)
+round(cor(fbdata[!is.na(fbdata$total_expenses),c(5,6,7,9,10)], fbdata[!is.na(fbdata$total_expenses),3]),3) # taking into account that Pitt is missing Knight-Newhouse data, likely because it's technically not a public university but rather "state-related"
 ```
 
 All levels for each qualitative variable show some overlap in the box plots (as shown in Appendix C), with fairly comparable mean average win percentages. However, SEC schools, schools with 3/4 NIL collectives, and rural schools are the only groups with mean (yearly average) win percentages above 60%, indicating that there may be a relationship between any given categorical variable and the average win percentage of Power Five FBS schools (from 2022-2024).
@@ -76,6 +79,31 @@ Looking at the grouped scatter plots in Appendix C, there isn't strong evidence 
 
 ```{r, echo=FALSE, warning=FALSE,results=FALSE}
 ## This code chunk can be used to execute any functions or summaries that will not be included in your output
+
+# Nish's code
+fbdatacor <- round(cor(fbdata[!is.na(fbdata$total_expenses), c(5,6,7,9,10)]), 4)
+fbdatacor
+corrplot(fbdatacor)
+
+model_quantonly <- lm(avg_win_pct ~ total_expenses + total_revenues + total_fb_coaching + scoring_offense + scoring_defense, data = fbdata)
+model_quantonly_vif <- round(vif(model_quantonly), 3)
+model_quantonly_vif # very high multicollinearity!
+
+model_expenses <- lm(avg_win_pct ~ total_expenses + total_fb_coaching + scoring_offense + scoring_defense, data = fbdata)
+model_expenses_vif <- round(vif(model_expenses), 3)
+model_expenses_vif # VIF values significantly lower
+
+model_everyvariable <- lm(avg_win_pct ~ conference + total_expenses + total_revenues + total_fb_coaching + nil_collectives + scoring_offense + scoring_defense + campus_setting, data = fbdata)
+ols_step_both_p(model_everyvariable, p_ent = 0.15, p_rem = 0.15, details = F) # well duh we know that scoring offense and scoring defense would have the highest correlation, but that's not really useful for prediction
+
+model_noscoring <- lm(avg_win_pct ~ conference + total_expenses + total_revenues + total_fb_coaching + nil_collectives + campus_setting, data = fbdata)
+ols_step_both_p(model_noscoring, p_ent = 0.15, p_rem = 0.15, details = F) # leaves us only with coaching spending
+
+model_financials <- lm(avg_win_pct ~ total_expenses + total_fb_coaching, data = fbdata)
+summary(model_financials) # only football coaching spending is really significant here, which makes sense
+
+model_qual <- lm(avg_win_pct ~ conference + nil_collectives + campus_setting, data = fbdata)
+summary(model_qual) # not really a significant model here, categorical variables might be more useful for interactions?
 
 ```
 
@@ -111,7 +139,7 @@ head(fbdata)
 
 ### Appendix C: Exploratory Data Analysis
 
-```{r, echo=TRUE}
+```{r, echo=FALSE}
 ## Use this codeto include the relevant plots from EDA
 ## This should NOT be a dump of all of your plots and outputs.
 ## Refer to the Rmarkdown guide for sizing information on your plots
