@@ -40,8 +40,17 @@ fbdata$nil_collectives <- as.character(fbdata$nil_collectives)
 fbdata$nil_collectives[fbdata$nil_collectives %in% c("3", "4")] <- "3+"
 fbdata[5:7] <- fbdata[5:7] / 1000000
 
-# removing Pitt since it's missing financials
+# removing Pitt since it's missing data on financials (as it's not a public school)
 fbdata <- na.omit(fbdata)
+
+# combining suburban and rural
+fbdata[,12] <- fbdata$campus_setting
+colnames(fbdata)[12] <- "campus_setting_2"
+fbdata$campus_setting_2[fbdata$campus_setting_2 %in% c("Suburban", "Rural")] <- "Non-Urban"
+
+fbdata[,13] <- fbdata$nil_collectives
+colnames(fbdata)[13] <- "nil_collectives_2"
+fbdata$nil_collectives_2[fbdata$nil_collectives_2 %in% c("2", "3+")] <- "2+"
 
 ## Remove the ## before all code.
 ```
@@ -84,29 +93,67 @@ Looking at the grouped scatter plots in Appendix C, there isn't strong evidence 
 ## This code chunk can be used to execute any functions or summaries that will not be included in your output
 
 # Nish's code
-fbdatacor <- round(cor(fbdata[!is.na(fbdata$total_expenses), c(5,6,7,9,10)]), 4)
-fbdatacor
-corrplot(fbdatacor)
 
-model_quantonly <- lm(avg_win_pct ~ total_expenses + total_revenues + total_fb_coaching + scoring_offense + scoring_defense, data = fbdata)
-model_quantonly_vif <- round(vif(model_quantonly), 3)
-model_quantonly_vif # very high multicollinearity!
+# plot with correlations to identify multicollinearity
+corr_matrix <- round(cor(fbdata[ , c(5,6,7,9,10)]), 4)
+corr_matrix
+corrplot(corr_matrix)
 
-model_expenses <- lm(avg_win_pct ~ total_expenses + total_fb_coaching + scoring_offense + scoring_defense, data = fbdata)
-model_expenses_vif <- round(vif(model_expenses), 3)
-model_expenses_vif # VIF values significantly lower
+# all quantitative variables, single-order terms only!
+m_allquant <- lm(avg_win_pct ~ total_expenses + total_revenues + total_fb_coaching + scoring_offense + scoring_defense, data = fbdata)
+### taking VIF values for each variable, greater than 10 for total expenses/revenues
+vif_allquant <- round(vif(m_allquant), 3)
+vif_allquant
 
-model_everyvariable <- lm(avg_win_pct ~ conference + total_expenses + total_revenues + total_fb_coaching + nil_collectives + scoring_offense + scoring_defense + campus_setting, data = fbdata)
-ols_step_both_p(model_everyvariable, p_ent = 0.15, p_rem = 0.15, details = F) # well duh we know that scoring offense and scoring defense would have the highest correlation, but that's not really useful for prediction
 
-model_noscoring <- lm(avg_win_pct ~ conference + total_expenses + total_revenues + total_fb_coaching + nil_collectives + campus_setting, data = fbdata)
-ols_step_both_p(model_noscoring, p_ent = 0.15, p_rem = 0.15, details = F) # leaves us only with coaching spending
+# all quantitative single-order terms minus total department expenses
+m_noexpenses <- lm(avg_win_pct ~ total_revenues + total_fb_coaching + scoring_offense + scoring_defense, data = fbdata)
+summary(m_noexpenses)
+### checking for multicollinearity, we're good!
+vif_noexpenses <- round(vif(m_noexpenses), 3)
+vif_noexpenses
+### stepwise regression, kept only scoring offense and defense
+ols_step_both_p(m_noexpenses, p_ent = 0.15, p_rem = 0.15, details = F)
+ols_step_both_p(m_noexpenses, p_ent = 0.3, p_rem = 0.3, details = F)
 
-model_financials <- lm(avg_win_pct ~ total_expenses + total_fb_coaching, data = fbdata)
-summary(model_financials) # only football coaching spending is really significant here, which makes sense
+# quantitative vars minus expenses/revenues plus higher-order terms, no interactions significant
+m_quantinteractions <- lm(avg_win_pct ~ total_fb_coaching*scoring_offense + total_fb_coaching * scoring_defense + scoring_offense*scoring_defense, data = fbdata)
+summary(m_quantinteractions)
 
-model_qual <- lm(avg_win_pct ~ conference + nil_collectives + campus_setting, data = fbdata)
-summary(model_qual) # not really a significant model here, categorical variables might be more useful for interactions?
+# just coaching spending, scoring offense, and scoring defense
+m_coachingscoring <- lm(avg_win_pct ~ total_fb_coaching + scoring_offense + scoring_defense, data = fbdata)
+summary(m_coachingscoring)
+
+m_scoring <- lm(avg_win_pct ~ scoring_offense + scoring_defense, data = fbdata)
+summary(m_scoring)
+
+# scoring and qualitative variables with all three interactions
+m_scoringqual <- lm(avg_win_pct ~ scoring_offense + scoring_defense + conference*campus_setting_2 + conference*nil_collectives_2 + campus_setting_2*nil_collectives_2, data = fbdata)
+summary(m_scoringqual)
+
+## reduced models to test against for conference*setting, conference*NIL, and setting*NIL, respectively
+m_scoringred1 <- lm(avg_win_pct ~ scoring_offense + scoring_defense + conference*nil_collectives_2 + campus_setting_2*nil_collectives_2, data = fbdata)
+m_scoringred2 <- lm(avg_win_pct ~ scoring_offense + scoring_defense + conference*campus_setting_2 + campus_setting_2*nil_collectives_2, data = fbdata)
+m_scoringred3 <- lm(avg_win_pct ~ scoring_offense + scoring_defense + conference*campus_setting_2 + conference*nil_collectives_2 , data = fbdata)
+
+### nested F-test values (all insignificant, but conference*setting had p = 0.13 which isn't BAD, might test that one further)
+anova(m_scoringred1, m_scoringqual)
+anova(m_scoringred2, m_scoringqual)
+anova(m_scoringred3, m_scoringqual)
+
+# scoring and qualitative variables, no interactions
+m_qualsingle <- lm(avg_win_pct ~ scoring_offense + scoring_defense + conference + campus_setting + nil_collectives, data = fbdata)
+summary(m_qualsingle)
+
+## reduced models to test against for individual qualitative variables
+m_scoringred4 <- lm(avg_win_pct ~ scoring_offense + scoring_defense + campus_setting + nil_collectives, data = fbdata)
+m_scoringred5 <- lm(avg_win_pct ~ scoring_offense + scoring_defense + conference + nil_collectives, data = fbdata)
+m_scoringred6 <- lm(avg_win_pct ~ scoring_offense + scoring_defense + conference + campus_setting, data = fbdata)
+
+### nested F-tests on dummy variables! still none significant
+anova(m_scoringred4, m_qualsingle)
+anova(m_scoringred5, m_qualsingle)
+anova(m_scoringred6, m_qualsingle)
 
 # Aiden's code
 
@@ -118,7 +165,7 @@ model_main <- lm(avg_win_pct ~ conference + nil_collectives + campus_setting +
                  data = fbdata)
 
 influential <- which(cooks.distance(model_reduced) > 4/nrow(fbdata))
-fbdata_clean[influential, c("university", "total_fb_coaching", 
+fbdata[influential, c("university", "total_fb_coaching", 
                              "scoring_offense", "scoring_defense", 
                              "avg_win_pct")]
 
@@ -135,6 +182,24 @@ pred_rsq
 AIC(model_reduced)
 BIC(model_reduced)
 ```
+
+To start building our model, we began testing our quantitative explanatory variables (total athletic department expenses per year, total department revenues per year, total football coaching spending per year, scoring offense, and scoring defense), first seeking to identify multicollinearity. As expected, total department expenses and revenues were strongly correlated ($r = 0.9615$), leading to VIF values greater than 10 for those two variables when testing all quantitative variables (single-order terms only).
+
+Removing total department expenses from our model, we found that all variables had VIF values below 10 and that the mean was below 3, indicating no serious multicollinearity. We then performed stepwise regression (setting both p_ent and p_rem to 0.15 and then 0.3), finding that only **scoring offense** and **scoring defense** were being included in the model.
+
+For final analysis on just quantitative variables, we checked for interactions between scoring offense, scoring defense, and total coaching spending (including coaching spending as it was moderately positively correlated to average win percentage, $r = 0.642$). None of the interactions were significant at predicting average win percentage (all $p > 0.05$ for t-tests on each), so all interaction terms were dropped.
+
+As a result, for quantitative variables, we stuck with the model solely including scoring offense and scoring defense, as it had the highest adjusted r-squared ($r^2 = 0.8471$), with a global F-test indicating that the model itself is adequate at predicting average win percentage ($F = 142.3, df = 2, 49, p < 2.2 \times 10^{-16}$), and individual t-tests indicating that each variable is a significant predictor (all $p < 10^{-11}$).
+
+While there did not seem to be any major relationship between our categorical variables (conference, number of NIL collectives, campus setting), there was evidence of interactions between conference, NIL collectives, and campus setting (as shown in the interaction plots in appendix C). As a result, we added single-order terms and interactions for these three variables to the model (in addition to scoring offense/scoring defense).
+
+Performing nested F-tests, we found that all three interactions (conference vs NIL collectives, conference vs campus setting, and NIL collectives vs campus setting) were not significant in predicting average win percentage. As a result, all interaction terms were dropped, and each single-order term was further tested. After performing nested F-tests on the dummy variables for conference, number of NIL collectives, and campus setting, we found that none of those variables were significant in predicting average win percentage. **As a result, we still retained the model with just scoring offense and scoring defense.**
+
+We did not see evidence for a significant interaction between scoring offense/defense and our qualitative variables in scatterplots (see scoring offense vs conference in appendix C), so they were not added to our model. As a result, our final model was:
+
+$Average Win \% = \beta_{0} + \beta_{1}ScoringOffense + \beta_{2}ScoringDefense$, with predicted values
+
+$\widehat{Average Win \%} = 64.3942 + 1.3098ScoringOffense - 1.8747ScoringDefense$.
 
 ## Conclusions
 
@@ -229,7 +294,9 @@ ggplot(data = fbdata, mapping = aes(x = scoring_offense, y = avg_win_pct, color 
   geom_smooth(method = lm, se = FALSE) +
   labs(x = "Scoring Offense", y = "Average Win %", color = "Conference", title = "Interaction Scoring Offense and Conference")
 
-interaction.plot(fbdata$conference, fbdata$campus_setting, fbdata$avg_win_pct, fun = mean, trace.label = "Campus Setting", xlab = "Conference", ylab = "Average Win Percentage") # Might make a prettier version with ggplot2 later! Still a beginner to ggplot2 though
+interaction.plot(fbdata$conference, fbdata$campus_setting_2, fbdata$avg_win_pct, fun = mean, trace.label = "Campus Setting", xlab = "Conference", ylab = "Average Win Percentage") # Might make a prettier version with ggplot2 later! Still a beginner to ggplot2 though
+
+interaction.plot(fbdata$conference, fbdata$nil_collectives_2, fbdata$avg_win_pct, fun = mean, trace.label = "Number of NIL Collectives", xlab = "Conference", ylab = "Average Win Percentage")
 ```
 
 \newpage
