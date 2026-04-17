@@ -40,6 +40,9 @@ fbdata$nil_collectives <- as.character(fbdata$nil_collectives)
 fbdata$nil_collectives[fbdata$nil_collectives %in% c("3", "4")] <- "3+"
 fbdata[5:7] <- fbdata[5:7] / 1000000
 
+# removing Pitt since it's missing financials
+fbdata <- na.omit(fbdata)
+
 ## Remove the ## before all code.
 ```
 
@@ -105,6 +108,32 @@ summary(model_financials) # only football coaching spending is really significan
 model_qual <- lm(avg_win_pct ~ conference + nil_collectives + campus_setting, data = fbdata)
 summary(model_qual) # not really a significant model here, categorical variables might be more useful for interactions?
 
+# Aiden's code
+
+model_reduced <- lm(avg_win_pct ~ scoring_offense + scoring_defense, 
+                    data = fbdata)
+
+model_main <- lm(avg_win_pct ~ conference + nil_collectives + campus_setting + 
+                   total_fb_coaching + scoring_offense + scoring_defense, 
+                 data = fbdata)
+
+influential <- which(cooks.distance(model_reduced) > 4/nrow(fbdata))
+fbdata_clean[influential, c("university", "total_fb_coaching", 
+                             "scoring_offense", "scoring_defense", 
+                             "avg_win_pct")]
+
+fbdata[fbdata$university %in% c("Iowa", "Oregon", "Colorado"), 
+             c("university", "total_fb_coaching", "scoring_offense", 
+               "scoring_defense", "avg_win_pct")]
+
+press_stat <- sum((residuals(model_reduced) / (1 - hatvalues(model_reduced)))^2)
+press_stat
+
+pred_rsq <- 1 - (press_stat / sum((fbdata$avg_win_pct - mean(fbdata$avg_win_pct))^2))
+pred_rsq
+
+AIC(model_reduced)
+BIC(model_reduced)
 ```
 
 ## Conclusions
